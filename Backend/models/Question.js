@@ -1,12 +1,23 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 // Question Schema
 const QuestionSchema = new mongoose.Schema({
-    course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
-    questionText: { type: String, required: true },
-    options: [{ text: String, isCorrect: Boolean }], // For MCQs
-    marks: { type: Number, required: true },
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now },
-  });
-  
-  const Question = mongoose.model('Question', QuestionSchema);
+  question_text: { type: String, required: true },
+  example_input_output: [
+    {
+      input: { type: String },
+      output: { type: String },
+    },
+  ],
+  marks: { type: Number, required: true },
+  test_cases: [
+    {
+      input: { type: String },
+      expected_output: { type: String },
+    },
+  ],
+  subject: { type: String, required: true },
+  created_at: { type: Date, default: Date.now },
+  updated_at: { type: Date, default: Date.now },
+});
+
+const Question = mongoose.model("Question", QuestionSchema);
