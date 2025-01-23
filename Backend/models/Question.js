@@ -15,7 +15,12 @@ const QuestionSchema = new mongoose.Schema({
       expected_output: { type: String },
     },
   ],
-  subject: { type: String, required: true },
+  createdBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Teacher', 
+    required: true 
+  },
+  subject: { type: String },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
 });

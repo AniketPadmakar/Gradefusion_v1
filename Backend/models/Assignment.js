@@ -6,6 +6,7 @@ const AssignmentSchema = new mongoose.Schema({
   questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true }],
   teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
   due_at: { type: Date, required: true },
+  marks: { type: Number, required: true },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
   });

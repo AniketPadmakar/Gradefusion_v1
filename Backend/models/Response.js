@@ -5,7 +5,7 @@ const ResponseSchema = new mongoose.Schema({
   assignment_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Assignment', required: true },
   question_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true },
   response_text: { type: String, required: true },
-  marks_obtained: { type: Number },
+  marks_obtained: { type: Number, default: 0 },
   time_taken: { type: Number, required: true },
   submitted_at: { type: Date, default: Date.now },
   created_at: { type: Date, default: Date.now },
