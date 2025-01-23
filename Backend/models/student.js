@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt')
 
 // Student Schema
 const StudentSchema = new mongoose.Schema({
@@ -13,4 +14,39 @@ const StudentSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
+StudentSchema.pre('save', function (next) {
+  const Student = this;
+  if (!Student.isModified('password')) {
+      return next()
+  }
+  bcrypt.genSalt(10, (err, salt) => {
+      if (err) {
+          return next(err)
+      }
+
+      bcrypt.hash(Student.password, salt, (err, hash) => {
+          if (err) {
+              return next(err)
+          }
+          Student.password = hash;
+          next()
+      })
+  })
+
+})
+
+StudentSchema.methods.comparePassword = function (candidatePassword) {
+  const Student = this;
+  return new Promise((resolve, reject) => {
+      bcrypt.compare(candidatePassword, Student.password, (err, isMatch) => {
+          if (err) {
+              return reject(err)
+          }
+          if (!isMatch) {
+              return reject(err)
+          }
+          resolve(true)
+      })
+  })
+}
 const Student = mongoose.model('Student', StudentSchema);
