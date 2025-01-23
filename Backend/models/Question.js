@@ -1,11 +1,12 @@
 const mongoose = require("mongoose");
+
 // Question Schema
 const QuestionSchema = new mongoose.Schema({
   question_text: { type: String, required: true },
   example_input_output: [
     {
-      input: { type: String },
-      output: { type: String },
+      input: { type: String, required: true},
+      output: { type: String, required: true },
     },
   ],
   marks: { type: Number, required: true },
@@ -25,4 +26,4 @@ const QuestionSchema = new mongoose.Schema({
   updated_at: { type: Date, default: Date.now },
 });
 
-const Question = mongoose.model("Question", QuestionSchema);
+module.exports= mongoose.model("Question", QuestionSchema);

@@ -6,11 +6,10 @@ const cron = require('node-cron');
 const path = require("path");
 const mongoose = require('mongoose');
 require('./models/student');
-require('./models/teacher');
+require('./models/Teacher');
 require('./models/Assignment');
 require('./models/Question');
 require('./models/Response');
-require('./models/Test case');
 require('./models/course');
 
 
@@ -27,6 +26,7 @@ app.use(express.json())
 
 app.use("/app/student", require('./routes/user/auth'));
 app.use("/app/teacher", require('./routes/admin/auth'));
+app.use("/app/teacher", require('./routes/admin/question-routes'));
 
 app.listen(port, () => {
     console.log(` backend listening at http://localhost:${port}`)

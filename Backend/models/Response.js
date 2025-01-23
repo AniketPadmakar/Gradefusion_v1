@@ -12,4 +12,4 @@ const ResponseSchema = new mongoose.Schema({
   updated_at: { type: Date, default: Date.now },
   });
   
-  const Response = mongoose.model('Response', ResponseSchema);
+  module.exports = mongoose.model('Response', ResponseSchema);

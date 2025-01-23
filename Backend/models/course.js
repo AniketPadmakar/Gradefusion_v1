@@ -12,4 +12,4 @@ const CourseSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
   });
   
-  const Course = mongoose.model('Course', CourseSchema);
+  module.exports = mongoose.model('Course', CourseSchema);

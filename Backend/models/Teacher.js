@@ -50,4 +50,4 @@ TeacherSchema.methods.comparePassword = function (candidatePassword) {
   })
 }
   
-  const Teacher = mongoose.model('Teacher', TeacherSchema);
+module.exports = mongoose.model('Teacher', TeacherSchema);
