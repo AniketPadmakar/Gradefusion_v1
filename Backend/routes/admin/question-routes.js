@@ -8,10 +8,10 @@ router.post('/create-question', authMiddleware, async (req, res) => {
     try {
         const { 
             question_text, 
-            example_input_output, 
-            marks, 
-            test_cases, 
-            subject 
+            example_input_output,               
+            marks,                  
+            test_cases,                             
+            subject         
         } = req.body;
 
         // Validate input
