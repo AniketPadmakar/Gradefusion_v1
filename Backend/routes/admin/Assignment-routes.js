@@ -4,7 +4,7 @@ const Assignment = require('../../models/Assignment');
 const authMiddleware = require('../../middleware/fetchadmin');
 
 // Create Assignment
-router.post('/Create Assignments', authMiddleware, async (req, res) => {
+router.post('/create-assignments', authMiddleware, async (req, res) => {
     try {
         const { 
             assignment_name, 
@@ -40,7 +40,7 @@ router.post('/Create Assignments', authMiddleware, async (req, res) => {
 });
 
 // Fetch Assignments
-router.get('/fetch Assignments', authMiddleware, async (req, res) => {
+router.get('/fetch-assignments', authMiddleware, async (req, res) => {
     try {
         const assignments = await Assignment.find({ teacher_id: req.user._id })
             .populate('course_id')
@@ -60,7 +60,7 @@ router.get('/fetch Assignments', authMiddleware, async (req, res) => {
 });
 
 // Update Assignment
-router.put('/update Assignments/:id', authMiddleware, async (req, res) => {
+router.put('/update-assignments/:id', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -92,7 +92,7 @@ router.put('/update Assignments/:id', authMiddleware, async (req, res) => {
 });
 
 // Delete Assignment
-router.delete('/delete Assignments/:id', authMiddleware, async (req, res) => {
+router.delete('/delete-assignments/:id', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -119,7 +119,7 @@ router.delete('/delete Assignments/:id', authMiddleware, async (req, res) => {
 });
 
 // Fetch Single Assignment
-router.get('/fetch Single Assignment/:id', authMiddleware, async (req, res) => {
+router.get('/fetch-single-assignment/:id', authMiddleware, async (req, res) => {
     try {
         const assignment = await Assignment.findOne({ 
             _id: req.params.id, 
