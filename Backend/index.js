@@ -27,6 +27,7 @@ app.use(express.json())
 app.use("/app/student", require('./routes/user/auth'));
 app.use("/app/teacher", require('./routes/admin/auth'));
 app.use("/app/teacher", require('./routes/admin/question-routes'));
+app.use("/app/teacher", require('./routes/admin/Assignment-routes'));
 
 app.listen(port, () => {
     console.log(` backend listening at http://localhost:${port}`)

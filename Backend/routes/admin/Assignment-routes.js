@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const Assignment = require('../../models/Assignment');
+const Student = require('../../models/student');
+const Course = require('../../models/course');
 const authMiddleware = require('../../middleware/fetchadmin');
 
 // Create Assignment
@@ -10,11 +12,29 @@ router.post('/create-assignments', authMiddleware, async (req, res) => {
             assignment_name, 
             course_id, 
             questions, 
-            student_ids, 
+            class_name,
+            batch, 
             due_at, 
             marks 
         } = req.body;
 
+        // Find students matching the class and batch
+        const students = await Student.find({ 
+            class: class_name, 
+            batch: batch 
+        });
+
+        // Extract student IDs
+        const student_ids = students.map(student => student._id);
+
+        // Validate student existence
+        if (student_ids.length === 0) {
+            return res.status(400).json({ 
+                message: 'No students found for the specified class and batch' 
+            });
+        }
+
+        // Create new assignment
         const newAssignment = new Assignment({
             assignment_name,
             course_id,
@@ -25,11 +45,20 @@ router.post('/create-assignments', authMiddleware, async (req, res) => {
             marks
         });
 
+        // Save assignment
         const savedAssignment = await newAssignment.save();
+
+        // Update course with the new assignment
+        await Course.findByIdAndUpdate(
+            course_id, 
+            { $push: { assignments: savedAssignment._id } },
+            { new: true }
+        );
 
         res.status(201).json({
             message: 'Assignment created successfully',
-            assignment: savedAssignment
+            assignment: savedAssignment,
+            studentsAdded: student_ids.length
         });
     } catch (error) {
         res.status(500).json({ 
