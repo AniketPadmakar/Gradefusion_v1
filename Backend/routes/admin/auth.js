@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 const Teacher = mongoose.model('Teacher');
+const student=mongoose.model('student');
 
 router.post('/signup', async (req, res) => {
     try {

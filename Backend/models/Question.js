@@ -1,19 +1,18 @@
 const mongoose = require("mongoose");
-
 // Question Schema
 const QuestionSchema = new mongoose.Schema({
   question_text: { type: String, required: true },
   example_input_output: [
     {
-      input: { type: String, required: true},
-      output: { type: String, required: true },
+      input: { type: String },
+      output: { type: String },
     },
   ],
   marks: { type: Number, required: true },
   test_cases: [
     {
-      input: { type: String },
-      expected_output: { type: String },
+      input: { type: String },                                                                                                                      
+      expected_output: { type: String },                                        
     },
   ],
   createdBy: { 
@@ -26,4 +25,4 @@ const QuestionSchema = new mongoose.Schema({
   updated_at: { type: Date, default: Date.now },
 });
 
-module.exports= mongoose.model("Question", QuestionSchema);
+const Question = mongoose.model("Question", QuestionSchema);
