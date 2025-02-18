@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const moment = require('moment-timezone');
 
 // Question Schema
 const QuestionSchema = new mongoose.Schema({
@@ -22,8 +23,14 @@ const QuestionSchema = new mongoose.Schema({
     required: true 
   },
   subject: { type: String },
-  created_at: { type: Date, default: Date.now },
-  updated_at: { type: Date, default: Date.now },
+  created_at: { 
+    type: String, 
+    default: () => moment().tz("Asia/Kolkata").format("DD/MM/YYYY :: HH:mm:ss") 
+  },
+  updated_at: { 
+    type: String, 
+    default: () => moment().tz("Asia/Kolkata").format("DD/MM/YYYY :: HH:mm:ss") 
+  },
 });
 
 module.exports= mongoose.model("Question", QuestionSchema);

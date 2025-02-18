@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const moment = require('moment-timezone');
+
 // Course Schema
 const CourseSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -8,8 +10,14 @@ const CourseSchema = new mongoose.Schema({
   teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
   assignments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Assignment' }],
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  created_at: { 
+    type: String, 
+    default: () => moment().tz("Asia/Kolkata").format("DD/MM/YYYY :: HH:mm:ss") 
+  },
+  updated_at: { 
+    type: String, 
+    default: () => moment().tz("Asia/Kolkata").format("DD/MM/YYYY :: HH:mm:ss") 
+  },
   });
   
   module.exports = mongoose.model('Course', CourseSchema);

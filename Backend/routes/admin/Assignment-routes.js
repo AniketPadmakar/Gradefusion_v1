@@ -3,7 +3,9 @@ const router = express.Router();
 const Assignment = require('../../models/Assignment');
 const Student = require('../../models/student');
 const Course = require('../../models/course');
+const moment = require('moment-timezone');
 const authMiddleware = require('../../middleware/fetchadmin');
+
 
 // Create Assignment
 router.post('/create-assignments', authMiddleware, async (req, res) => {
@@ -96,8 +98,7 @@ router.put('/update-assignments/:id', authMiddleware, async (req, res) => {
         const assignment = await Assignment.findOneAndUpdate(
             { _id: id, teacher_id: req.user._id },
             { 
-                ...req.body, 
-                updated_at: new Date() 
+                ...req.body
             },
             { new: true }
         );
@@ -106,6 +107,11 @@ router.put('/update-assignments/:id', authMiddleware, async (req, res) => {
             return res.status(404).json({ 
                 message: 'Assignment not found' 
             });
+        }
+
+        // Check if due_at exists and format it; otherwise, leave it as is
+        if (assignment.due_at) {
+            assignment.due_at = moment(assignment.due_at).format('DD/MM/YYYY :: HH:mm:ss');
         }
 
         res.status(200).json({

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt')
+const moment = require('moment-timezone');
 
 // Student Schema
 const StudentSchema = new mongoose.Schema({
@@ -10,8 +11,14 @@ const StudentSchema = new mongoose.Schema({
   class: { type: String, required: true },
   batch: { type: String, required: true },
   enrolledCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }],
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
+  created_at: { 
+    type: String, 
+    default: () => moment().tz("Asia/Kolkata").format("DD/MM/YYYY :: HH:mm:ss") 
+  },
+  updated_at: { 
+    type: String, 
+    default: () => moment().tz("Asia/Kolkata").format("DD/MM/YYYY :: HH:mm:ss") 
+  },
 });
 
 StudentSchema.pre('save', function (next) {
