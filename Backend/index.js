@@ -27,12 +27,15 @@ app.use(express.json())
 app.use("/app/student", require('./routes/user/auth'));
 app.use("/app/student", require('./routes/user/student-fetch-assignment'));
 app.use("/app/student", require('./routes/user/student-submit-solution'));
+app.use("/app/student", require('./routes/user/student-view-grades'));
 
 
 app.use("/app/teacher", require('./routes/admin/auth'));
 app.use("/app/teacher", require('./routes/admin/question-routes'));
 app.use("/app/teacher", require('./routes/admin/Assignment-routes'));
 app.use("/app/teacher", require('./routes/admin/reopen-assignment'));
+app.use("/app/teacher", require('./routes/admin/response-Teacher'));
+
 
 
 app.listen(port, () => {
