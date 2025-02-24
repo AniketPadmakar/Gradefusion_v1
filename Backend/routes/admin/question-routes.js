@@ -66,6 +66,26 @@ router.get('/fetch-questions', authMiddleware, async (req, res) => {
     }
 });
 
+router.get('/fetch-question/:id', authMiddleware, async (req, res) => {
+    try {
+        const question = await Question.findOne({ 
+            _id: req.params.id, 
+            createdBy: req.user._id 
+        });
+
+        if (!question) {
+            return res.status(404).json({ message: 'Question not found' });
+        }
+
+        res.status(200).json(question);
+    } catch (error) {
+        res.status(500).json({ 
+            message: 'Error fetching question details', 
+            error: error.message 
+        });
+    }
+});
+
 // Update a specific question
 router.put('/update/:id', authMiddleware, async (req, res) => {
     try {
