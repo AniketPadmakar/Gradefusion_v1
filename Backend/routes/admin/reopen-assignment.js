@@ -11,7 +11,7 @@ const moment = require('moment-timezone');
 router.post('/reopen-assignments/:assignmentId', authMiddleware, async (req, res) => {
     try {
         const { assignmentId } = req.params;
-        const { studentId, reopenForAll } = req.body;
+        const { studentId, reopenForAll, newDueDate } = req.body;
 
         // Find the assignment
         const assignment = await Assignment.findOne({ 
@@ -25,6 +25,11 @@ router.post('/reopen-assignments/:assignmentId', authMiddleware, async (req, res
             });
         }
 
+        if (newDueDate) {
+            assignment.due_at = newDueDate;
+            await assignment.save();
+        }
+        
         let updatedResponses;
 
         if (reopenForAll) {
@@ -33,7 +38,7 @@ router.post('/reopen-assignments/:assignmentId', authMiddleware, async (req, res
                 { assignment_id: assignmentId },
                 {
                     status: 'reopened',
-                    updated_at: new Date(),
+                    updated_at: moment().tz('Asia/Kolkata').format('DD/MM/YYYY :: HH:mm:ss'),
                     $inc: { submission_attempts: 1 }
                 }
             );
