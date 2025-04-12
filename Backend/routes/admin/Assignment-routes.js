@@ -16,9 +16,20 @@ router.post('/create-assignments', authMiddleware, async (req, res) => {
             questions, 
             class_name,
             batch, 
+            start_at,
             due_at, 
             marks 
         } = req.body;
+
+        // Parse and validate dates
+        const parsedStartDate = moment(start_at, 'DD/MM/YYYY :: HH:mm:ss');
+        const parsedDueDate = moment(due_at, 'DD/MM/YYYY :: HH:mm:ss');
+
+        if (!parsedStartDate.isValid() || !parsedDueDate.isValid()) {
+            return res.status(400).json({
+                message: 'Invalid date format. Use DD/MM/YYYY :: HH:mm:ss'
+            });
+        }
 
         // Find students matching the class and batch
         const students = await Student.find({ 
@@ -43,6 +54,7 @@ router.post('/create-assignments', authMiddleware, async (req, res) => {
             questions,
             teacher_id: req.user._id,
             student_ids,
+            start_at,
             due_at,
             marks
         });
@@ -94,12 +106,32 @@ router.get('/fetch-assignments', authMiddleware, async (req, res) => {
 router.put('/update-assignments/:id', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
+        const updateData = { ...req.body };
+
+        // Parse dates with specific format if they exist
+        if (updateData.start_at) {
+            const parsedStartDate = moment(updateData.start_at, 'DD/MM/YYYY :: HH:mm:ss');
+            if (!parsedStartDate.isValid()) {
+                return res.status(400).json({
+                    message: 'Invalid start date format. Use DD/MM/YYYY :: HH:mm:ss'
+                });
+            }
+            updateData.start_at = parsedStartDate.toDate();
+        }
+
+        if (updateData.due_at) {
+            const parsedDueDate = moment(updateData.due_at, 'DD/MM/YYYY :: HH:mm:ss');
+            if (!parsedDueDate.isValid()) {
+                return res.status(400).json({
+                    message: 'Invalid due date format. Use DD/MM/YYYY :: HH:mm:ss'
+                });
+            }
+            updateData.due_at = parsedDueDate.toDate();
+        }
 
         const assignment = await Assignment.findOneAndUpdate(
             { _id: id, teacher_id: req.user._id },
-            { 
-                ...req.body
-            },
+            updateData,
             { new: true }
         );
 
@@ -109,14 +141,16 @@ router.put('/update-assignments/:id', authMiddleware, async (req, res) => {
             });
         }
 
-        // Check if due_at exists and format it; otherwise, leave it as is
-        if (assignment.due_at) {
-            assignment.due_at = moment(assignment.due_at).format('DD/MM/YYYY :: HH:mm:ss');
-        }
+        // Format dates for response
+        const formattedAssignment = {
+            ...assignment.toObject(),
+            start_at: moment(assignment.start_at).format('DD/MM/YYYY :: HH:mm:ss'),
+            due_at: moment(assignment.due_at).format('DD/MM/YYYY :: HH:mm:ss')
+        };
 
         res.status(200).json({
             message: 'Assignment updated successfully',
-            assignment
+            assignment: formattedAssignment
         });
     } catch (error) {
         res.status(500).json({ 
@@ -170,7 +204,14 @@ router.get('/fetch-single-assignment/:id', authMiddleware, async (req, res) => {
             });
         }
 
-        res.status(200).json({ assignment });
+        // Format dates for response
+        const formattedAssignment = {
+            ...assignment.toObject(),
+            start_at: moment(assignment.start_at).format('DD/MM/YYYY :: HH:mm:ss'),
+            due_at: moment(assignment.due_at).format('DD/MM/YYYY :: HH:mm:ss')
+        };
+
+        res.status(200).json({ assignment: formattedAssignment });
     } catch (error) {
         res.status(500).json({ 
             message: 'Error fetching assignment details', 
