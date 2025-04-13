@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const moment = require('moment-timezone');
+const dateUtils = require('../utils/dateUtils');
 
 // Assignment Schema
 const AssignmentSchema = new mongoose.Schema({
@@ -8,16 +8,30 @@ const AssignmentSchema = new mongoose.Schema({
   questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true }],
   teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
   student_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true }],
-  start_at: { type: String, required: true },
-  due_at: { type: String, required: true },
+  start_at: { 
+    type: String, 
+    required: true,
+    validate: {
+      validator: dateUtils.isValidDate,
+      message: 'Invalid date format'
+    }
+  },
+  due_at: { 
+    type: String, 
+    required: true,
+    validate: {
+      validator: dateUtils.isValidDate,
+      message: 'Invalid date format'
+    }
+  },
   marks: { type: Number, required: true },
   created_at: { 
     type: String, 
-    default: () => moment().tz("Asia/Kolkata").format("DD/MM/YYYY :: HH:mm:ss") 
+    default: dateUtils.getCurrentDate
   },
   updated_at: { 
     type: String, 
-    default: () => moment().tz("Asia/Kolkata").format("DD/MM/YYYY :: HH:mm:ss") 
+    default: dateUtils.getCurrentDate
   },
   });
   

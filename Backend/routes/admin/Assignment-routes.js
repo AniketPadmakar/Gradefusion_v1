@@ -1,9 +1,10 @@
 const express = require('express');
+const moment = require('moment-timezone');
 const router = express.Router();
 const Assignment = require('../../models/Assignment');
 const Student = require('../../models/student');
 const Course = require('../../models/course');
-const moment = require('moment-timezone');
+const dateUtils = require('../../utils/dateUtils');
 const authMiddleware = require('../../middleware/fetchadmin');
 
 
@@ -21,17 +22,13 @@ router.post('/create-assignments', authMiddleware, async (req, res) => {
             marks 
         } = req.body;
 
-        // Parse and validate dates with flexible input handling
-        const parsedStartDate = moment(start_at).isValid() 
-            ? moment(start_at) 
-            : moment(start_at, 'DD/MM/YYYY :: HH:mm:ss');
-        const parsedDueDate = moment(due_at).isValid() 
-            ? moment(due_at) 
-            : moment(due_at, 'DD/MM/YYYY :: HH:mm:ss');
+        // Convert and validate dates using standard format
+        const standardizedStartDate = dateUtils.formatToStandard(start_at);
+        const standardizedDueDate = dateUtils.formatToStandard(due_at);
 
-        if (!parsedStartDate.isValid() || !parsedDueDate.isValid()) {
+        if (!dateUtils.isValidDate(standardizedStartDate) || !dateUtils.isValidDate(standardizedDueDate)) {
             return res.status(400).json({
-                message: 'Invalid date format. Use either ISO format or DD/MM/YYYY :: HH:mm:ss'
+                message: 'Invalid date format. Use ISO format or DD/MM/YYYY :: HH:mm:ss'
             });
         }
 
@@ -51,15 +48,15 @@ router.post('/create-assignments', authMiddleware, async (req, res) => {
             });
         }
 
-        // Create new assignment
+        // Create new assignment with standardized dates
         const newAssignment = new Assignment({
             assignment_name,
             course_id,
             questions,
             teacher_id: req.user._id,
             student_ids,
-            start_at,
-            due_at,
+            start_at: standardizedStartDate,
+            due_at: standardizedDueDate,
             marks
         });
 
@@ -112,29 +109,25 @@ router.put('/update-assignments/:id', authMiddleware, async (req, res) => {
         const { id } = req.params;
         const updateData = { ...req.body };
 
-        // Parse dates with specific format if they exist
+        // Standardize dates if they exist in the update data
         if (updateData.start_at) {
-            const parsedStartDate = moment(updateData.start_at).isValid()
-                ? moment(updateData.start_at)
-                : moment(updateData.start_at, 'DD/MM/YYYY :: HH:mm:ss');
-            if (!parsedStartDate.isValid()) {
+            const standardizedStartDate = dateUtils.formatToStandard(updateData.start_at);
+            if (!dateUtils.isValidDate(standardizedStartDate)) {
                 return res.status(400).json({
-                    message: 'Invalid start date format. Use either ISO format or DD/MM/YYYY :: HH:mm:ss'
+                    message: 'Invalid start date format. Use ISO format or DD/MM/YYYY :: HH:mm:ss'
                 });
             }
-            updateData.start_at = parsedStartDate.format('DD/MM/YYYY :: HH:mm:ss');
+            updateData.start_at = standardizedStartDate;
         }
 
         if (updateData.due_at) {
-            const parsedDueDate = moment(updateData.due_at).isValid()
-                ? moment(updateData.due_at)
-                : moment(updateData.due_at, 'DD/MM/YYYY :: HH:mm:ss');
-            if (!parsedDueDate.isValid()) {
+            const standardizedDueDate = dateUtils.formatToStandard(updateData.due_at);
+            if (!dateUtils.isValidDate(standardizedDueDate)) {
                 return res.status(400).json({
-                    message: 'Invalid due date format. Use either ISO format or DD/MM/YYYY :: HH:mm:ss'
+                    message: 'Invalid due date format. Use ISO format or DD/MM/YYYY :: HH:mm:ss'
                 });
             }
-            updateData.due_at = parsedDueDate.format('DD/MM/YYYY :: HH:mm:ss');
+            updateData.due_at = standardizedDueDate;
         }
 
         const assignment = await Assignment.findOneAndUpdate(

@@ -9,10 +9,14 @@ const moment = require('moment-timezone');
 // Route to fetch assignments for a student with only one random question per assignment
 router.get("/assignments-student", authenticateStudent, async (req, res) => {
     try {
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ message: "Authentication required" });
+        }
+
         // Get student ID from the authenticated user
         const studentId = req.user.id;
 
-        // Find the student to get batch number
+        // Find the student to get class and batch info
         const student = await Student.findById(studentId);
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
@@ -20,41 +24,58 @@ router.get("/assignments-student", authenticateStudent, async (req, res) => {
 
         // Fetch assignments where student is assigned
         const assignments = await Assignment.find({
-            batchNo: student.batchNo,
-            student_ids: studentId // Ensures the assignment is specifically for this student
-        });
+            student_ids: studentId
+        }).populate('questions');
 
-        if (assignments.length === 0) {
-            return res.status(404).json({ message: "No assignments found for this student" });
-        }
-
-        // First get all responses for this student
+        // Get all responses for this student first
         const responses = await Response.find({ student_id: studentId });
         const submittedAssignmentIds = responses.map(r => r.assignment_id.toString());
+
+        if (assignments.length === 0) {
+            return res.status(200).json({ 
+                assignments: [],
+                message: "No assignments found for this student",
+                studentInfo: {
+                    class: student.class,
+                    batch: student.batch
+                }
+            });
+        }
+
+        // Populate course information for each assignment
+        await Assignment.populate(assignments, {
+            path: 'course_id',
+            select: 'subject'
+        });
 
         // Modify assignments to include only one random question per assignment and submission status
         const modifiedAssignments = await Promise.all(assignments.map(async assignment => {
             if (assignment.questions && assignment.questions.length > 0) {
                 const randomQuestion = assignment.questions[Math.floor(Math.random() * assignment.questions.length)];
                 
-                // Check if this assignment has been submitted
-                const isSubmitted = submittedAssignmentIds.includes(assignment._id.toString());
+                // Find all responses for this assignment
+                const assignmentResponses = responses.filter(r => 
+                    r.assignment_id.toString() === assignment._id.toString()
+                );
                 
-                // Find submission date if submitted
-                const submission = isSubmitted ? 
-                    responses.find(r => r.assignment_id.toString() === assignment._id.toString()) : null;
+                const isSubmitted = assignmentResponses.length > 0;
+                const submission = isSubmitted ? assignmentResponses[0] : null;
 
                 return {
                     _id: assignment._id,
                     assignment_name: assignment.assignment_name,
                     questions: [randomQuestion], // Keep only one random question
                     teacher_id: assignment.teacher_id,
+                    course_id: assignment.course_id,
                     due_at: assignment.due_at,
+                    start_at: assignment.start_at,
                     marks: assignment.marks,
                     created_at: assignment.created_at,
-                    updated_at: submission ? submission.updatedAt : assignment.updated_at,
+                    updated_at: submission ? submission.submitted_at : assignment.updated_at,
                     isSubmitted: isSubmitted,
-                    submittedAt: submission ? submission.createdAt : null
+                    submittedAt: submission ? submission.submitted_at : null,
+                    submission_status: submission ? submission.status : null,
+                    marks_obtained: submission ? submission.marks_obtained : null
                 };
             }
             return null; // Ignore assignments with no questions
@@ -70,8 +91,18 @@ router.get("/assignments-student", authenticateStudent, async (req, res) => {
 // Route to fetch a single assignment details for a student
 router.get("/assignments-student/:id", authenticateStudent, async (req, res) => {
     try {
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ message: "Authentication required" });
+        }
+
         const assignmentId = req.params.id;
         const studentId = req.user.id;
+
+        // Find the student to get class and batch
+        const student = await Student.findById(studentId);
+        if (!student) {
+            return res.status(404).json({ message: "Student not found" });
+        }
 
         // Find the assignment and populate related data
         const assignment = await Assignment.findOne({
@@ -109,11 +140,12 @@ router.get("/assignments-student/:id", authenticateStudent, async (req, res) => 
             course_id: assignment.course_id,
             teacher_id: assignment.teacher_id,
             questions: [randomQuestion], // Only include the randomly selected question
+            start_at: assignment.start_at,
             due_at: assignment.due_at,
             marks: assignment.marks,
             created_at: assignment.created_at,
             updated_at: assignment.updated_at,
-            isSubmitted: !!existingSubmission // Add submission status
+            isSubmitted: false, // We already checked there's no submission
         };
 
         res.status(200).json(modifiedAssignment);
