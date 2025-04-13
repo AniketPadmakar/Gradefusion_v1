@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Assignment = require("../../models/Assignment");
 const Student = require("../../models/student");
+const Response = require("../../models/Response");
 const authenticateStudent = require("../../middleware/fetchuser");
 const moment = require('moment-timezone');
 
@@ -27,10 +28,22 @@ router.get("/assignments-student", authenticateStudent, async (req, res) => {
             return res.status(404).json({ message: "No assignments found for this student" });
         }
 
-        // Modify assignments to include only one random question per assignment
-        const modifiedAssignments = assignments.map(assignment => {
+        // First get all responses for this student
+        const responses = await Response.find({ student_id: studentId });
+        const submittedAssignmentIds = responses.map(r => r.assignment_id.toString());
+
+        // Modify assignments to include only one random question per assignment and submission status
+        const modifiedAssignments = await Promise.all(assignments.map(async assignment => {
             if (assignment.questions && assignment.questions.length > 0) {
                 const randomQuestion = assignment.questions[Math.floor(Math.random() * assignment.questions.length)];
+                
+                // Check if this assignment has been submitted
+                const isSubmitted = submittedAssignmentIds.includes(assignment._id.toString());
+                
+                // Find submission date if submitted
+                const submission = isSubmitted ? 
+                    responses.find(r => r.assignment_id.toString() === assignment._id.toString()) : null;
+
                 return {
                     _id: assignment._id,
                     assignment_name: assignment.assignment_name,
@@ -39,11 +52,13 @@ router.get("/assignments-student", authenticateStudent, async (req, res) => {
                     due_at: assignment.due_at,
                     marks: assignment.marks,
                     created_at: assignment.created_at,
-                    updated_at: assignment.updated_at
+                    updated_at: submission ? submission.updatedAt : assignment.updated_at,
+                    isSubmitted: isSubmitted,
+                    submittedAt: submission ? submission.createdAt : null
                 };
             }
             return null; // Ignore assignments with no questions
-        }).filter(Boolean); // Remove null values
+        })).then(results => results.filter(Boolean)); // Remove null values
 
         res.status(200).json({ assignments: modifiedAssignments });
     } catch (error) {
@@ -71,6 +86,19 @@ router.get("/assignments-student/:id", authenticateStudent, async (req, res) => 
             return res.status(404).json({ message: "Assignment not found or not assigned to this student" });
         }
 
+        // Check if student has already submitted this assignment
+        const existingSubmission = await Response.findOne({ 
+            assignment_id: assignmentId,
+            student_id: studentId
+        });
+
+        if (existingSubmission) {
+            return res.status(403).json({ 
+                message: "You have already submitted this assignment",
+                isSubmitted: true
+            });
+        }
+
         // Randomly select one question from the assignment's questions
         const randomQuestion = assignment.questions[Math.floor(Math.random() * assignment.questions.length)];
         
@@ -84,7 +112,8 @@ router.get("/assignments-student/:id", authenticateStudent, async (req, res) => 
             due_at: assignment.due_at,
             marks: assignment.marks,
             created_at: assignment.created_at,
-            updated_at: assignment.updated_at
+            updated_at: assignment.updated_at,
+            isSubmitted: !!existingSubmission // Add submission status
         };
 
         res.status(200).json(modifiedAssignment);

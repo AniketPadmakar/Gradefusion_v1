@@ -21,13 +21,17 @@ router.post('/create-assignments', authMiddleware, async (req, res) => {
             marks 
         } = req.body;
 
-        // Parse and validate dates
-        const parsedStartDate = moment(start_at, 'DD/MM/YYYY :: HH:mm:ss');
-        const parsedDueDate = moment(due_at, 'DD/MM/YYYY :: HH:mm:ss');
+        // Parse and validate dates with flexible input handling
+        const parsedStartDate = moment(start_at).isValid() 
+            ? moment(start_at) 
+            : moment(start_at, 'DD/MM/YYYY :: HH:mm:ss');
+        const parsedDueDate = moment(due_at).isValid() 
+            ? moment(due_at) 
+            : moment(due_at, 'DD/MM/YYYY :: HH:mm:ss');
 
         if (!parsedStartDate.isValid() || !parsedDueDate.isValid()) {
             return res.status(400).json({
-                message: 'Invalid date format. Use DD/MM/YYYY :: HH:mm:ss'
+                message: 'Invalid date format. Use either ISO format or DD/MM/YYYY :: HH:mm:ss'
             });
         }
 
@@ -110,23 +114,27 @@ router.put('/update-assignments/:id', authMiddleware, async (req, res) => {
 
         // Parse dates with specific format if they exist
         if (updateData.start_at) {
-            const parsedStartDate = moment(updateData.start_at, 'DD/MM/YYYY :: HH:mm:ss');
+            const parsedStartDate = moment(updateData.start_at).isValid()
+                ? moment(updateData.start_at)
+                : moment(updateData.start_at, 'DD/MM/YYYY :: HH:mm:ss');
             if (!parsedStartDate.isValid()) {
                 return res.status(400).json({
-                    message: 'Invalid start date format. Use DD/MM/YYYY :: HH:mm:ss'
+                    message: 'Invalid start date format. Use either ISO format or DD/MM/YYYY :: HH:mm:ss'
                 });
             }
-            updateData.start_at = parsedStartDate.toDate();
+            updateData.start_at = parsedStartDate.format('DD/MM/YYYY :: HH:mm:ss');
         }
 
         if (updateData.due_at) {
-            const parsedDueDate = moment(updateData.due_at, 'DD/MM/YYYY :: HH:mm:ss');
+            const parsedDueDate = moment(updateData.due_at).isValid()
+                ? moment(updateData.due_at)
+                : moment(updateData.due_at, 'DD/MM/YYYY :: HH:mm:ss');
             if (!parsedDueDate.isValid()) {
                 return res.status(400).json({
-                    message: 'Invalid due date format. Use DD/MM/YYYY :: HH:mm:ss'
+                    message: 'Invalid due date format. Use either ISO format or DD/MM/YYYY :: HH:mm:ss'
                 });
             }
-            updateData.due_at = parsedDueDate.toDate();
+            updateData.due_at = parsedDueDate.format('DD/MM/YYYY :: HH:mm:ss');
         }
 
         const assignment = await Assignment.findOneAndUpdate(
@@ -204,11 +212,15 @@ router.get('/fetch-single-assignment/:id', authMiddleware, async (req, res) => {
             });
         }
 
-        // Format dates for response
+        // Format dates for response with explicit format parsing
         const formattedAssignment = {
             ...assignment.toObject(),
-            start_at: moment(assignment.start_at).format('DD/MM/YYYY :: HH:mm:ss'),
-            due_at: moment(assignment.due_at).format('DD/MM/YYYY :: HH:mm:ss')
+            start_at: moment(assignment.start_at, 'DD/MM/YYYY :: HH:mm:ss').isValid() 
+                ? assignment.start_at 
+                : moment(assignment.start_at).format('DD/MM/YYYY :: HH:mm:ss'),
+            due_at: moment(assignment.due_at, 'DD/MM/YYYY :: HH:mm:ss').isValid() 
+                ? assignment.due_at 
+                : moment(assignment.due_at).format('DD/MM/YYYY :: HH:mm:ss')
         };
 
         res.status(200).json({ assignment: formattedAssignment });

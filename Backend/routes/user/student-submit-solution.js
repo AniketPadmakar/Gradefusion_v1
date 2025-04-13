@@ -9,7 +9,7 @@ const moment = require('moment-timezone');
 router.post("/:assignmentId/submit", authenticateStudent, async (req, res) => {
     try {
         const { assignmentId } = req.params;
-        const { responseText, timeTaken } = req.body;
+        const { responseText, timeTaken, testResults } = req.body;
         const studentId = req.user.id;
 
         // Find the assignment
@@ -65,7 +65,12 @@ router.post("/:assignmentId/submit", authenticateStudent, async (req, res) => {
             student_id: studentId,
             question_id: randomQuestion, // Store the randomly assigned question
             response_text: responseText,
-            time_taken: timeTaken
+            time_taken: timeTaken,
+            test_results: {
+                passedTests: testResults.passedTests,
+                totalTests: testResults.totalTests,
+                allResults: testResults.allResults
+            }
         });
 
         await response.save();
@@ -77,6 +82,32 @@ router.post("/:assignmentId/submit", authenticateStudent, async (req, res) => {
 
     } catch (error) {
         console.error("Error submitting assignment:", error);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+});
+
+// Route to mark assignment as submitted
+router.post("/mark-submitted/:assignmentId", authenticateStudent, async (req, res) => {
+    try {
+        const { assignmentId } = req.params;
+        const studentId = req.user.id;
+
+        // Find if there's already a submission
+        const existingSubmission = await Response.findOne({ 
+            assignment_id: assignmentId, 
+            student_id: studentId 
+        });
+
+        if (!existingSubmission) {
+            return res.status(404).json({ message: "No submission found" });
+        }
+
+        existingSubmission.isSubmitted = true;
+        await existingSubmission.save();
+
+        res.status(200).json({ message: "Assignment marked as submitted" });
+    } catch (error) {
+        console.error("Error marking assignment as submitted:", error);
         res.status(500).json({ message: "Internal Server Error" });
     }
 });

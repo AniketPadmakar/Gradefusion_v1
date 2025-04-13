@@ -47,13 +47,10 @@ StudentSchema.methods.comparePassword = function (candidatePassword) {
   return new Promise((resolve, reject) => {
       bcrypt.compare(candidatePassword, Student.password, (err, isMatch) => {
           if (err) {
-              return reject(err)
+              return reject(err);
           }
-          if (!isMatch) {
-              return reject(err)
-          }
-          resolve(true)
-      })
-  })
+          resolve(isMatch);
+      });
+  });
 }
 module.exports = mongoose.model('Student', StudentSchema);
