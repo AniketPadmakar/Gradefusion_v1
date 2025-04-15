@@ -10,7 +10,7 @@ router.post("/:assignmentId/submit", authenticateStudent, async (req, res) => {
     try {
         const { assignmentId } = req.params;
         const { responseText, timeTaken, testResults } = req.body;
-        const studentId = req.user.id;
+        const studentId = req.user.id.toString();;
 
         // Find the assignment
         const assignment = await Assignment.findById(assignmentId);
