@@ -24,6 +24,11 @@ const ResponseSchema = new mongoose.Schema({
       input: String
     }]
   },
+  marks: {
+    type: Object, // Stores { scenario1Marks, scenario2Marks, scenario3Marks }
+    required: false,
+    default: {},
+  },
   submitted_at: { type: String, 
     default: () => moment().tz("Asia/Kolkata").format("DD/MM/YYYY :: HH:mm:ss")},
   created_at: { 

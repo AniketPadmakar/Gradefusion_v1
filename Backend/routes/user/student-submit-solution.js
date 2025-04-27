@@ -6,71 +6,103 @@ const Response = require("../../models/Response"); // Assuming Response model ex
 const authenticateStudent = require("../../middleware/fetchuser");
 const moment = require('moment-timezone');
 
+// ===== Helper function for result calculation =====
+function calculateMarks(testResults) {
+    if (!testResults || !testResults.allResults) return null;
+
+    const submissions = testResults.allResults;
+    const totalTests = submissions.length;
+    const passedTests = submissions.filter(sub => sub.isSuccess);
+
+    // Scenario 1 - Equal weightage
+    const scenario1 = (() => {
+        const totalPossibleMarks = totalTests * 2;
+        const obtainedMarks = passedTests.length * 2;
+        return ((obtainedMarks / totalPossibleMarks) * 10).toFixed(2);
+    })();
+
+    // Scenario 2 - Weighted based on difficulty
+    const scenario2 = (() => {
+        const easyCount = Math.floor(totalTests * 0.3);
+        const mediumCount = Math.floor(totalTests * 0.4);
+        const hardCount = totalTests - easyCount - mediumCount;
+
+        const marksArray = [];
+        for (let i = 0; i < totalTests; i++) {
+            if (i < easyCount) marksArray.push(1);
+            else if (i < easyCount + mediumCount) marksArray.push(1.5);
+            else marksArray.push(2.5);
+        }
+
+        let obtainedMarks = 0;
+        let totalPossibleMarks = 0;
+        for (let i = 0; i < totalTests; i++) {
+            totalPossibleMarks += marksArray[i];
+            if (submissions[i].isSuccess) {
+                obtainedMarks += marksArray[i];
+            }
+        }
+
+        return ((obtainedMarks / totalPossibleMarks) * 10).toFixed(2);
+    })();
+
+    // Scenario 3 - Progressive difficulty
+    const scenario3 = (() => {
+        let obtainedMarks = 0;
+        let totalPossibleMarks = 0;
+        
+        submissions.forEach((sub, index) => {
+            // Progressive weight: later tests are worth more
+            const weight = 1 + (index * 0.5);
+            totalPossibleMarks += weight;
+            if (sub.isSuccess) {
+                obtainedMarks += weight;
+            }
+        });
+
+        return ((obtainedMarks / totalPossibleMarks) * 10).toFixed(2);
+    })();
+
+    return {
+        scenario1: scenario1,
+        scenario2: scenario2,
+        scenario3: scenario3
+    };
+}
+
 router.post("/:assignmentId/submit", authenticateStudent, async (req, res) => {
     try {
         const { assignmentId } = req.params;
+        const studentId = req.user.id; // Get studentId from authenticated user
         const { responseText, timeTaken, testResults } = req.body;
-        const studentId = req.user.id.toString();;
 
-        // Find the assignment
+        // Calculate marks using the helper function
+        const calculatedMarks = calculateMarks(testResults);
+
+        // Find the assignment to get a random question
         const assignment = await Assignment.findById(assignmentId);
         if (!assignment) {
             return res.status(404).json({ message: "Assignment not found" });
         }
-
-        // Fetch all students assigned to this assignment
-        const studentsInAssignment = await Student.find({ _id: { $in: assignment.student_ids } });
-
-        if (!studentsInAssignment.length) {
-            return res.status(400).json({ message: "No students assigned to this assignment" });
-        }
-
-        // Get the batch of the requesting student
-        const requestingStudent = studentsInAssignment.find(student => student._id.toString() === studentId);
-        if (!requestingStudent) {
-            return res.status(403).json({ message: "You are not part of this assignment" });
-        }
-
-        const batchNo = requestingStudent.batch;
-
-        // Filter students who belong to the same batch
-        const eligibleStudents = studentsInAssignment.filter(student => student.batch === batchNo);
-
-        // Check if the requesting student is eligible
-        if (!eligibleStudents.some(student => student._id.toString() === studentId)) {
-            return res.status(403).json({ message: "You are not eligible to submit this assignment" });
-        }
-
-        // Ensure the assignment is still open for submission
-        if (new Date() > new Date(assignment.due_at)) {
-            return res.status(400).json({ message: "Assignment submission deadline has passed" });
-        }
-
-        // Check if the student has already submitted a response
-        const existingResponse = await Response.findOne({ assignment_id: assignmentId, student_id: studentId });
-        if (existingResponse) {
-            return res.status(400).json({ message: "You have already submitted a response for this assignment" });
-        }
-
-        // Extract a random question from the assignment
-        if (assignment.questions.length === 0) {
-            return res.status(400).json({ message: "No questions found in the assignment" });
-        }
-
-        const randomQuestion = assignment.questions[Math.floor(Math.random() * assignment.questions.length)];
-
-        // Create and store response
+        
+        // Create new response with calculated marks
         const response = new Response({
-            assignment_id: assignmentId,
             student_id: studentId,
-            question_id: randomQuestion, // Store the randomly assigned question
+            assignment_id: assignmentId,
+            question_id: assignment.questions[Math.floor(Math.random() * assignment.questions.length)],
             response_text: responseText,
             time_taken: timeTaken,
-            test_results: {
-                passedTests: testResults.passedTests,
-                totalTests: testResults.totalTests,
-                allResults: testResults.allResults
-            }
+            test_results: testResults,
+            marks: {
+                scenario1Marks: calculatedMarks?.scenario1 || 0,
+                scenario2Marks: calculatedMarks?.scenario2 || 0,
+                scenario3Marks: calculatedMarks?.scenario3 || 0
+            },
+            marks_obtained: Math.max(
+                parseFloat(calculatedMarks?.scenario1 || 0),
+                parseFloat(calculatedMarks?.scenario2 || 0),
+                parseFloat(calculatedMarks?.scenario3 || 0)
+            )
         });
 
         await response.save();
@@ -78,6 +110,7 @@ router.post("/:assignmentId/submit", authenticateStudent, async (req, res) => {
         res.status(201).json({
             message: "Response submitted successfully",
             response,
+            marks: response.marks
         });
 
     } catch (error) {
@@ -109,6 +142,105 @@ router.post("/mark-submitted/:assignmentId", authenticateStudent, async (req, re
     } catch (error) {
         console.error("Error marking assignment as submitted:", error);
         res.status(500).json({ message: "Internal Server Error" });
+    }
+});
+
+// Result Calculation Route (integrated as router.post)
+router.post("/resultCalculation/:assignmentId", async (req, res) => {
+    try {
+        const { judge0RawResponse } = req.body;
+
+        // judge0RawResponse should have a "submissions" array
+        const submissions = judge0RawResponse && judge0RawResponse.submissions;
+
+        if (!submissions) {
+            return res.status(400).json({ error: 'Missing submissions' });
+        }
+
+        const totalTests = submissions.length;
+        const passedTests = submissions.filter(sub => sub.status.id === 3);
+
+        // ====== SCENARIO 1: Simple 2 marks per pass ======
+        const scenario1 = (() => {
+            const totalPossibleMarks = totalTests * 2;
+            const obtainedMarks = passedTests.length * 2;
+            return ((obtainedMarks / totalPossibleMarks) * 10).toFixed(2);
+        })();
+
+        // ====== SCENARIO 2: Weighted based on difficulty ======
+        const scenario2 = (() => {
+            const easyCount = Math.floor(totalTests * 0.3);
+            const mediumCount = Math.floor(totalTests * 0.4);
+            const hardCount = totalTests - easyCount - mediumCount;
+
+            const marksArray = [];
+            for (let i = 0; i < totalTests; i++) {
+                if (i < easyCount) marksArray.push(1);
+                else if (i < easyCount + mediumCount) marksArray.push(1.5);
+                else marksArray.push(2.5);
+            }
+
+            let obtainedMarks = 0;
+            let totalPossibleMarks = 0;
+            for (let i = 0; i < totalTests; i++) {
+                totalPossibleMarks += marksArray[i];
+                if (submissions[i].status.id === 3) {
+                    obtainedMarks += marksArray[i];
+                }
+            }
+
+            return ((obtainedMarks / totalPossibleMarks) * 10).toFixed(2);
+        })();
+
+        // ====== SCENARIO 3: Weighted + Time/Memory penalties ======
+        const scenario3 = (() => {
+            const easyCount = Math.floor(totalTests * 0.3);
+            const mediumCount = Math.floor(totalTests * 0.4);
+            const hardCount = totalTests - easyCount - mediumCount;
+
+            const marksArray = [];
+            for (let i = 0; i < totalTests; i++) {
+                if (i < easyCount) marksArray.push(1);
+                else if (i < easyCount + mediumCount) marksArray.push(1.5);
+                else marksArray.push(2.5);
+            }
+
+            const timeThreshold = 0.08; // seconds
+            const memoryThreshold = 20480; // KB
+
+            let obtainedMarks = 0;
+            let totalPossibleMarks = 0;
+            for (let i = 0; i < totalTests; i++) {
+                totalPossibleMarks += marksArray[i];
+
+                if (submissions[i].status.id === 3) {
+                    let marks = marksArray[i];
+
+                    if (submissions[i].time > timeThreshold) {
+                        marks -= 0.2;
+                    }
+                    if (submissions[i].memory > memoryThreshold) {
+                        marks -= 0.2;
+                    }
+
+                    if (marks < 0) marks = 0;
+                    obtainedMarks += marks;
+                }
+            }
+
+            return ((obtainedMarks / totalPossibleMarks) * 10).toFixed(2);
+        })();
+
+        // ====== FINAL RESPONSE ======
+        return res.json({
+            scenario1Marks: scenario1,
+            scenario2Marks: scenario2,
+            scenario3Marks: scenario3
+        });
+
+    } catch (err) {
+        console.error("Error in resultCalculation:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
     }
 });
 

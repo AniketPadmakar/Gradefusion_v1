@@ -1,10 +1,11 @@
 require("dotenv").config();
 const ConnectionDB = require("./database");
-const express = require("express");
+const express = require('express');
 const cors = require("cors");
 const cron = require('node-cron');
 const path = require("path");
 const mongoose = require('mongoose');
+const studentSubmitSolutionRouter = require('./routes/user/student-submit-solution');
 require('./models/student');
 require('./models/Teacher');
 require('./models/Assignment');
@@ -26,7 +27,7 @@ app.use(express.json())
 
 app.use("/app/student", require('./routes/user/auth'));
 app.use("/app/student", require('./routes/user/student-fetch-assignment'));
-app.use("/app/student", require('./routes/user/student-submit-solution'));
+app.use('/app/student', studentSubmitSolutionRouter);
 app.use("/app/student", require('./routes/user/student-view-grades'));
 
 
