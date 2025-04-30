@@ -98,11 +98,17 @@ router.post("/:assignmentId/submit", authenticateStudent, async (req, res) => {
                 scenario2Marks: calculatedMarks?.scenario2 || 0,
                 scenario3Marks: calculatedMarks?.scenario3 || 0
             },
-            marks_obtained: Math.max(
-                parseFloat(calculatedMarks?.scenario1 || 0),
-                parseFloat(calculatedMarks?.scenario2 || 0),
-                parseFloat(calculatedMarks?.scenario3 || 0)
-            )
+            marks_obtained: (() => {
+                const s1 = parseFloat(calculatedMarks?.scenario1 || 0);
+                const s2 = parseFloat(calculatedMarks?.scenario2 || 0);
+                const s3 = parseFloat(calculatedMarks?.scenario3 || 0);
+                
+                // Ensure all values are valid numbers
+                const validMarks = [s1, s2, s3].filter(mark => !isNaN(mark));
+                
+                // If no valid marks, return 0, otherwise return the maximum
+                return validMarks.length > 0 ? Math.max(...validMarks) : 0;
+            })()
         });
 
         await response.save();

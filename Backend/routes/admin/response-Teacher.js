@@ -5,6 +5,7 @@ const Student = require('../../models/student');
 const Course = require('../../models/course');
 const Assignment = require('../../models/Assignment');
 const authMiddleware = require('../../middleware/fetchadmin');
+const mongoose = require('mongoose');
 
 // Fetch Responses for a Specific Batch or Student in that Batch
 router.get('/fetch-batch-responses', authMiddleware, async (req, res) => {
@@ -15,86 +16,144 @@ router.get('/fetch-batch-responses', authMiddleware, async (req, res) => {
             return res.status(400).json({ message: "Batch is required" });
         }
 
-        // Get all student IDs in the given batch
-        const students = await Student.find({ batch }).select("_id");
-        const studentIds = students.map((s) => s._id.toString());
+        // Find all students from the batch
+        const students = await Student.find({
+            batch: { $regex: new RegExp('^' + batch + '$', 'i') }
+        }).select('_id firstName lastName email class batch');
 
         if (students.length === 0) {
-            return res.status(404).json({ message: "No students found in this batch" });
-        }
-
-        if (student_id) {
-            // Ensure the student is in the batch
-            if (!studentIds.includes(student_id)) {
-                return res.status(404).json({ message: "Student not found in this batch" });
-            }
-
-            // Fetch responses for the specific student
-            const responses = await Response.find({ student_id })
-                .populate("assignment_id question_id");
-
-            return res.json(responses);
-        }
-
-        // Fetch responses for all students in the batch
-        const responses = await Response.find({ student_id: { $in: studentIds } })
-            .populate("assignment_id question_id");
-
-        return res.json(responses);
-    } catch (error) {
-        console.error("Error fetching responses:", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
-});
-
-// Assignment Performance Report
-router.get('/performance-report', authMiddleware, async (req, res) => {
-    try {
-        const { assignment_id, student_id } = req.query;
-
-        // Verify that the assignment exists and belongs to the authenticated teacher
-        const assignment = await Assignment.findOne({ 
-            _id: assignment_id, 
-            teacher_id: req.user._id 
-        });
-
-        if (!assignment) {
-            return res.status(404).json({ 
-                message: 'Assignment not found or unauthorized' 
+            return res.status(200).json({
+                total_responses: 0,
+                students_count: 0,
+                responses: [],
+                message: `No students found in batch ${batch}`
             });
         }
 
-        // Build query to fetch responses
-        const query = { assignment_id };
-        if (student_id) query.student_id = student_id;
+        const studentIds = students.map((s) => s._id);
+        let query = { student_id: { $in: studentIds } };
 
-        const performanceReport = await Response.aggregate([
-            { $match: query },
-            { $group: {
-                _id: null,
-                total_responses: { $sum: 1 },
-                avg_marks: { $avg: '$marks_obtained' },
-                max_marks: { $max: '$marks_obtained' },
-                min_marks: { $min: '$marks_obtained' }
-            }}
-        ]);
-
-        res.status(200).json({
-            assignment_name: assignment.assignment_name,
-            performance: performanceReport.length > 0 ? performanceReport[0] : {
-                total_responses: 0,
-                avg_marks: 0,
-                max_marks: 0,
-                min_marks: 0
+        if (student_id) {
+            if (!studentIds.includes(mongoose.Types.ObjectId(student_id))) {
+                return res.status(404).json({ message: "Student not found in this batch" });
             }
+            query.student_id = mongoose.Types.ObjectId(student_id);
+        }
+
+        // Fetch responses without cutting fields
+        const responses = await Response.find(query)
+            .populate({
+                path: 'student_id',
+                select: 'firstName lastName email class batch',
+            })
+            .populate({
+                path: 'assignment_id',
+                select: 'assignment_name description due_date'
+            })
+            .populate({
+                path: 'question_id',
+                select: 'title description question_text'
+            })
+            .sort({ created_at: -1 });
+
+        const formattedResponses = responses.map(response => {
+            if (!response.student_id) return null;
+
+            const resObj = response.toObject();
+            
+            // Format test results properly
+            if (resObj.test_results && Array.isArray(resObj.test_results.allResults)) {
+                resObj.test_results.allResults = resObj.test_results.allResults.map(result => ({
+                    ...result,
+                    id: result.id?.toString() || null // Convert ObjectId to string or null if missing
+                }));
+            }
+
+            return {
+                ...resObj,
+                student_id: {
+                    _id: response.student_id._id,
+                    name: `${response.student_id.firstName} ${response.student_id.lastName}` || 'Unknown Student',
+                    email: response.student_id.email,
+                    class: response.student_id.class,
+                    batch: response.student_id.batch
+                },
+                assignment_id: response.assignment_id ? {
+                    _id: response.assignment_id._id,
+                    assignment_name: response.assignment_id.assignment_name,
+                    description: response.assignment_id.description,
+                    due_date: response.assignment_id.due_date
+                } : null,
+                question_id: response.question_id ? {
+                    _id: response.question_id._id,
+                    title: response.question_id.title,
+                    description: response.question_id.description,
+                    question_text: response.question_id.question_text
+                } : null
+            };
+        }).filter(Boolean); // Remove nulls
+
+        return res.json({
+            total_responses: formattedResponses.length,
+            students_count: students.length,
+            responses: formattedResponses
         });
+
     } catch (error) {
+        console.error("Error fetching responses:", error.message);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+});
+
+// Add performance report endpoint
+router.get('/performance-report', authMiddleware, async (req, res) => {
+    try {
+        const { response_id } = req.query;
+
+        if (!response_id) {
+            return res.status(400).json({ message: "Response ID is required" });
+        }
+
+        // Find the response and populate required fields
+        const response = await Response.findById(response_id)
+            .populate('assignment_id', 'assignment_name')
+            .populate('student_id', 'firstName lastName class batch');
+
+        if (!response) {
+            return res.status(404).json({ message: "Response not found" });
+        }
+
+        // Get all responses for the same assignment
+        const allResponses = await Response.find({ 
+            assignment_id: response.assignment_id._id 
+        });
+
+        // Calculate performance metrics
+        const performance = {
+            total_responses: allResponses.length,
+            avg_marks: allResponses.reduce((acc, r) => acc + (r.marks_obtained || 0), 0) / allResponses.length,
+            max_marks: Math.max(...allResponses.map(r => r.marks_obtained || 0)),
+            min_marks: Math.min(...allResponses.map(r => r.marks_obtained || 0)),
+            student_name: `${response.student_id.firstName} ${response.student_id.lastName}`,
+            student_class: response.student_id.class,
+            student_batch: response.student_id.batch
+        };
+
+        res.json({
+            assignment_name: response.assignment_id.assignment_name,
+            performance
+        });
+
+    } catch (error) {
+        console.error("Error generating performance report:", error);
         res.status(500).json({ 
             message: 'Error generating performance report', 
             error: error.message 
         });
     }
 });
-
 
 module.exports = router;

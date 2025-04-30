@@ -35,7 +35,7 @@ app.use("/app/teacher", require('./routes/admin/auth'));
 app.use("/app/teacher", require('./routes/admin/question-routes'));
 app.use("/app/teacher", require('./routes/admin/Assignment-routes'));
 app.use("/app/teacher", require('./routes/admin/reopen-assignment'));
-app.use("/app/teacher", require('./routes/admin/response-Teacher'));
+app.use("/app/teacher/response-Teacher", require('./routes/admin/response-Teacher'));
 
 
 
